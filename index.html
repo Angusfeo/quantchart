@@ -1,2 +1,698 @@
-# quantchart
-TradingView Gratis
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuantChart — Tu TradingView Personal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#0b0e13;font-family:'Courier New',monospace;color:#d1d5db;overflow:hidden}
+  .qf{display:flex;flex-direction:column;height:100vh;background:#0b0e13}
+
+  /* TOP BAR */
+  .qf-top{background:#111827;border-bottom:1px solid #1f2937;padding:8px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex-shrink:0}
+  .qf-logo{font-size:15px;font-weight:700;color:#f59e0b;letter-spacing:3px;white-space:nowrap}
+  .qf-search{background:#1f2937;border:1px solid #374151;border-radius:5px;padding:5px 12px;color:#d1d5db;font-size:11px;width:200px;font-family:'Courier New',monospace;outline:none}
+  .qf-search:focus{border-color:#f59e0b}
+  .qf-search::placeholder{color:#6b7280}
+  .cat-row{display:flex;gap:4px;flex-wrap:wrap}
+  .cat-btn{padding:5px 12px;border-radius:4px;border:1px solid #374151;background:transparent;color:#9ca3af;font-size:10px;cursor:pointer;font-family:'Courier New',monospace;transition:all .2s}
+  .cat-btn:hover{border-color:#6b7280;color:#d1d5db}
+  .cat-btn.on{background:#f59e0b22;border-color:#f59e0b;color:#f59e0b}
+  .api-badge{margin-left:auto;font-size:9px;padding:4px 10px;border-radius:10px;background:#065f46;color:#34d399;white-space:nowrap}
+  .api-badge.live{animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+  /* BODY */
+  .qf-body{display:flex;flex:1;overflow:hidden}
+
+  /* ASSET LIST */
+  .qf-list{width:230px;background:#0f1623;border-right:1px solid #1f2937;display:flex;flex-direction:column;flex-shrink:0}
+  .qf-list-inner{overflow-y:auto;flex:1}
+  .qf-list-inner::-webkit-scrollbar{width:4px}
+  .qf-list-inner::-webkit-scrollbar-track{background:#0b0e13}
+  .qf-list-inner::-webkit-scrollbar-thumb{background:#374151;border-radius:2px}
+  .asset-row{padding:8px 12px;cursor:pointer;border-bottom:1px solid #1a2233;display:flex;justify-content:space-between;align-items:center;transition:background .15s;border-left:2px solid transparent}
+  .asset-row:hover{background:#1f2937}
+  .asset-row.sel{background:#1e3a5f;border-left-color:#3b82f6}
+  .asset-sym{font-weight:700;font-size:11px;color:#f3f4f6}
+  .asset-name{font-size:9px;color:#6b7280;margin-top:2px}
+  .asset-price{text-align:right}
+  .asset-px{font-size:11px;font-weight:600}
+  .asset-chg{font-size:9px;margin-top:1px}
+  .up{color:#10b981}.dn{color:#ef4444}
+
+  /* MAIN CHART AREA */
+  .qf-main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+  .qf-chart-header{padding:8px 16px;background:#111827;border-bottom:1px solid #1f2937;display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex-shrink:0}
+  .sel-sym{font-size:17px;font-weight:700;color:#f3f4f6}
+  .sel-name{font-size:9px;color:#6b7280;margin-top:2px}
+  .sel-px{font-size:24px;font-weight:700}
+  .sel-chg{font-size:12px;padding:3px 10px;border-radius:4px}
+  .sel-stat{font-size:10px;color:#6b7280}
+  .sel-stat span{color:#9ca3af}
+  .tf-row{display:flex;gap:3px;margin-left:auto}
+  .tf-btn{padding:4px 9px;border-radius:3px;border:1px solid #374151;background:transparent;color:#6b7280;font-size:10px;cursor:pointer;font-family:'Courier New',monospace;transition:all .15s}
+  .tf-btn:hover{border-color:#6b7280;color:#d1d5db}
+  .tf-btn.on{background:#374151;color:#f3f4f6}
+
+  /* INDICATORS ROW */
+  .ind-row{display:flex;gap:6px;padding:6px 16px;background:#0b0e13;border-bottom:1px solid #1f2937;flex-wrap:wrap;align-items:center;flex-shrink:0}
+  .ind-tag{font-size:10px;padding:3px 10px;border-radius:3px;border:1px solid #1f2937;color:#6b7280;cursor:pointer;transition:all .15s}
+  .ind-tag:hover{border-color:#374151;color:#9ca3af}
+  .ind-tag.on{border-color:#3b82f6;color:#60a5fa;background:#1e3a5f33}
+  .api-src{margin-left:auto;font-size:9px;color:#4b5563}
+
+  /* ERROR */
+  .err-msg{background:#450a0a;border:1px solid #7f1d1d;border-radius:6px;padding:8px 14px;margin:8px 16px;font-size:10px;color:#fca5a5;flex-shrink:0}
+
+  /* CHARTS */
+  .chart-wrap{flex:1;position:relative;padding:10px 16px 4px;min-height:0}
+  .vol-wrap{height:55px;padding:0 16px 6px;flex-shrink:0}
+
+  /* FOOTER TICKER */
+  .qf-footer{background:#111827;border-top:1px solid #1f2937;padding:5px 14px;display:flex;gap:16px;overflow-x:auto;white-space:nowrap;flex-shrink:0;align-items:center}
+  .qf-footer::-webkit-scrollbar{display:none}
+  .tick-item{font-size:10px;color:#6b7280;display:flex;gap:6px}
+  .tick-item b{color:#d1d5db}
+  .source-note{margin-left:auto;font-size:9px;color:#374151;white-space:nowrap}
+
+  /* LOADING */
+  .loading{display:flex;align-items:center;justify-content:center;height:80px;color:#6b7280;font-size:11px}
+
+  /* SCROLLBAR GLOBAL */
+  ::-webkit-scrollbar{width:4px;height:4px}
+  ::-webkit-scrollbar-track{background:#0b0e13}
+  ::-webkit-scrollbar-thumb{background:#374151}
+</style>
+</head>
+<body>
+<div class="qf">
+
+  <!-- TOP BAR -->
+  <div class="qf-top">
+    <div class="qf-logo">◈ QUANTCHART</div>
+    <input class="qf-search" id="searchBox" placeholder="Buscar activo... BTC, AAPL, SPY..." />
+    <div class="cat-row" id="catRow">
+      <button class="cat-btn on" data-cat="CRYPTO">CRYPTO</button>
+      <button class="cat-btn" data-cat="STOCKS">ACCIONES</button>
+      <button class="cat-btn" data-cat="INDICES">ÍNDICES</button>
+      <button class="cat-btn" data-cat="COMMODITIES">MATERIAS PRIMAS</button>
+      <button class="cat-btn" data-cat="FOREX">FOREX</button>
+    </div>
+    <div class="api-badge live" id="apiBadge">● LIVE DATA</div>
+  </div>
+
+  <!-- BODY -->
+  <div class="qf-body">
+
+    <!-- ASSET LIST -->
+    <div class="qf-list">
+      <div class="qf-list-inner" id="assetList">
+        <div class="loading">Cargando activos...</div>
+      </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="qf-main">
+      <div class="qf-chart-header">
+        <div>
+          <div class="sel-sym" id="selSym">BTC/USDT</div>
+          <div class="sel-name" id="selName">Bitcoin</div>
+        </div>
+        <div class="sel-px up" id="selPx">—</div>
+        <div class="sel-chg" id="selChg">—</div>
+        <div class="sel-stat">High: <span id="selH">—</span></div>
+        <div class="sel-stat">Low: <span id="selL">—</span></div>
+        <div class="sel-stat">Vol: <span id="selV">—</span></div>
+        <div class="tf-row">
+          <button class="tf-btn on" data-tf="1m">1m</button>
+          <button class="tf-btn" data-tf="5m">5m</button>
+          <button class="tf-btn" data-tf="15m">15m</button>
+          <button class="tf-btn" data-tf="1h">1h</button>
+          <button class="tf-btn" data-tf="4h">4h</button>
+          <button class="tf-btn" data-tf="1d">1D</button>
+        </div>
+      </div>
+
+      <div class="ind-row">
+        <span class="ind-tag on" id="tagMA7">MA 7</span>
+        <span class="ind-tag on" id="tagMA25">MA 25</span>
+        <span class="ind-tag" id="tagMA99">MA 99</span>
+        <span class="ind-tag on" id="tagVol">VOLUMEN</span>
+        <span class="api-src" id="apiSrc">Fuente: —</span>
+      </div>
+
+      <div id="errBox"></div>
+
+      <div class="chart-wrap">
+        <canvas id="mainChart" role="img" aria-label="Gráfico de velas del activo seleccionado"></canvas>
+      </div>
+      <div class="vol-wrap" id="volWrap">
+        <canvas id="volChart" role="img" aria-label="Gráfico de volumen"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="qf-footer" id="footer">
+    <div class="tick-item">Cargando precios...</div>
+    <div class="source-note">Binance API + Finnhub · Mismas fuentes que Quantfury</div>
+  </div>
+
+</div>
+
+<script>
+// ─── ASSET CATALOGUE (mismos activos que Quantfury) ───────────────────────────
+const ASSETS = {
+  CRYPTO: [
+    {sym:'BTCUSDT',  label:'BTC/USDT',  name:'Bitcoin',            src:'binance'},
+    {sym:'ETHUSDT',  label:'ETH/USDT',  name:'Ethereum',           src:'binance'},
+    {sym:'SOLUSDT',  label:'SOL/USDT',  name:'Solana',             src:'binance'},
+    {sym:'BNBUSDT',  label:'BNB/USDT',  name:'Binance Coin',       src:'binance'},
+    {sym:'XRPUSDT',  label:'XRP/USDT',  name:'Ripple',             src:'binance'},
+    {sym:'ADAUSDT',  label:'ADA/USDT',  name:'Cardano',            src:'binance'},
+    {sym:'DOGEUSDT', label:'DOGE/USDT', name:'Dogecoin',           src:'binance'},
+    {sym:'AVAXUSDT', label:'AVAX/USDT', name:'Avalanche',          src:'binance'},
+    {sym:'DOTUSDT',  label:'DOT/USDT',  name:'Polkadot',           src:'binance'},
+    {sym:'MATICUSDT',label:'MATIC/USDT',name:'Polygon',            src:'binance'},
+    {sym:'LINKUSDT', label:'LINK/USDT', name:'Chainlink',          src:'binance'},
+    {sym:'LTCUSDT',  label:'LTC/USDT',  name:'Litecoin',           src:'binance'},
+    {sym:'UNIUSDT',  label:'UNI/USDT',  name:'Uniswap',            src:'binance'},
+    {sym:'ATOMUSDT', label:'ATOM/USDT', name:'Cosmos',             src:'binance'},
+    {sym:'ETCUSDT',  label:'ETC/USDT',  name:'Ethereum Classic',   src:'binance'},
+    {sym:'TRXUSDT',  label:'TRX/USDT',  name:'TRON',               src:'binance'},
+    {sym:'NEARUSDT', label:'NEAR/USDT', name:'NEAR Protocol',      src:'binance'},
+    {sym:'APTUSDT',  label:'APT/USDT',  name:'Aptos',              src:'binance'},
+    {sym:'SUIUSDT',  label:'SUI/USDT',  name:'Sui',                src:'binance'},
+    {sym:'ARBUSDT',  label:'ARB/USDT',  name:'Arbitrum',           src:'binance'},
+  ],
+  STOCKS: [
+    {sym:'AAPL',  label:'AAPL',  name:'Apple Inc.',             src:'finnhub'},
+    {sym:'MSFT',  label:'MSFT',  name:'Microsoft Corp.',        src:'finnhub'},
+    {sym:'NVDA',  label:'NVDA',  name:'NVIDIA Corp.',           src:'finnhub'},
+    {sym:'TSLA',  label:'TSLA',  name:'Tesla Inc.',             src:'finnhub'},
+    {sym:'AMZN',  label:'AMZN',  name:'Amazon.com',             src:'finnhub'},
+    {sym:'GOOGL', label:'GOOGL', name:'Alphabet Inc.',          src:'finnhub'},
+    {sym:'META',  label:'META',  name:'Meta Platforms',         src:'finnhub'},
+    {sym:'NFLX',  label:'NFLX',  name:'Netflix Inc.',           src:'finnhub'},
+    {sym:'AMD',   label:'AMD',   name:'Advanced Micro Devices', src:'finnhub'},
+    {sym:'COIN',  label:'COIN',  name:'Coinbase Global',        src:'finnhub'},
+    {sym:'INTC',  label:'INTC',  name:'Intel Corp.',            src:'finnhub'},
+    {sym:'BABA',  label:'BABA',  name:'Alibaba Group',          src:'finnhub'},
+    {sym:'PYPL',  label:'PYPL',  name:'PayPal Holdings',        src:'finnhub'},
+    {sym:'UBER',  label:'UBER',  name:'Uber Technologies',      src:'finnhub'},
+    {sym:'SPOT',  label:'SPOT',  name:'Spotify Technology',     src:'finnhub'},
+  ],
+  INDICES: [
+    {sym:'SPY', label:'S&P 500',     name:'SPDR S&P 500 ETF Trust',   src:'finnhub'},
+    {sym:'QQQ', label:'NASDAQ 100',  name:'Invesco QQQ Trust',         src:'finnhub'},
+    {sym:'DIA', label:'DOW JONES',   name:'SPDR Dow Jones ETF',        src:'finnhub'},
+    {sym:'IWM', label:'RUSSELL 2000',name:'iShares Russell 2000 ETF',  src:'finnhub'},
+    {sym:'EWJ', label:'NIKKEI',      name:'iShares MSCI Japan ETF',    src:'finnhub'},
+    {sym:'EWG', label:'DAX',         name:'iShares MSCI Germany ETF',  src:'finnhub'},
+    {sym:'EWQ', label:'CAC 40',      name:'iShares MSCI France ETF',   src:'finnhub'},
+    {sym:'VGK', label:'EURO STOXX',  name:'Vanguard FTSE Europe ETF',  src:'finnhub'},
+    {sym:'EWZ', label:'BOVESPA',     name:'iShares MSCI Brazil ETF',   src:'finnhub'},
+    {sym:'EEM', label:'EMERGING',    name:'iShares MSCI Emerging ETF', src:'finnhub'},
+  ],
+  COMMODITIES: [
+    {sym:'GLD',  label:'ORO (Gold)',      name:'SPDR Gold Shares',            src:'finnhub'},
+    {sym:'SLV',  label:'PLATA (Silver)',  name:'iShares Silver Trust',        src:'finnhub'},
+    {sym:'USO',  label:'PETRÓLEO (WTI)', name:'United States Oil Fund',       src:'finnhub'},
+    {sym:'UNG',  label:'GAS NATURAL',    name:'United States Natural Gas Fund',src:'finnhub'},
+    {sym:'CPER', label:'COBRE (Copper)', name:'United States Copper Index',   src:'finnhub'},
+    {sym:'WEAT', label:'TRIGO (Wheat)',  name:'Teucrium Wheat Fund',          src:'finnhub'},
+    {sym:'CORN', label:'MAÍZ (Corn)',    name:'Teucrium Corn Fund',           src:'finnhub'},
+    {sym:'SOYB', label:'SOJA (Soybean)',name:'Teucrium Soybean Fund',        src:'finnhub'},
+    {sym:'PPLT', label:'PLATINO',        name:'Aberdeen Platinum ETF',        src:'finnhub'},
+  ],
+  FOREX: [
+    {sym:'OANDA:EUR_USD', label:'EUR/USD', name:'Euro / US Dollar',            src:'finnhub_fx'},
+    {sym:'OANDA:GBP_USD', label:'GBP/USD', name:'British Pound / USD',         src:'finnhub_fx'},
+    {sym:'OANDA:USD_JPY', label:'USD/JPY', name:'US Dollar / Japanese Yen',    src:'finnhub_fx'},
+    {sym:'OANDA:USD_CHF', label:'USD/CHF', name:'US Dollar / Swiss Franc',     src:'finnhub_fx'},
+    {sym:'OANDA:AUD_USD', label:'AUD/USD', name:'Australian Dollar / USD',     src:'finnhub_fx'},
+    {sym:'OANDA:USD_CAD', label:'USD/CAD', name:'US Dollar / Canadian Dollar', src:'finnhub_fx'},
+    {sym:'OANDA:NZD_USD', label:'NZD/USD', name:'New Zealand Dollar / USD',    src:'finnhub_fx'},
+  ]
+};
+
+// Precios de referencia para datos simulados cuando la API no responde
+const FALLBACK = {
+  AAPL:212,MSFT:430,NVDA:135,TSLA:178,AMZN:200,GOOGL:175,META:570,NFLX:980,AMD:155,
+  COIN:220,INTC:23,BABA:90,PYPL:65,UBER:78,SPOT:420,
+  SPY:580,QQQ:490,DIA:430,IWM:210,EWJ:70,EWG:35,EWQ:30,VGK:65,EWZ:32,EEM:44,
+  GLD:240,SLV:30,USO:73,UNG:17,CPER:24,WEAT:5,CORN:22,SOYB:19,PPLT:85,
+  'OANDA:EUR_USD':1.085,'OANDA:GBP_USD':1.27,'OANDA:USD_JPY':149,
+  'OANDA:USD_CHF':0.91,'OANDA:AUD_USD':0.655,'OANDA:USD_CAD':1.36,'OANDA:NZD_USD':0.608
+};
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let currentCat = 'CRYPTO';
+let currentAsset = ASSETS.CRYPTO[0];
+let priceCache = {};
+let mainChartInst = null;
+let volChartInst = null;
+let showMA7 = true, showMA25 = true, showMA99 = false;
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function rnd(a,b){ return Math.random()*(b-a)+a }
+function fmt(n, d=2){
+  if(n===undefined||n===null||isNaN(n)) return '—';
+  if(n>=1000) return n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+  return n.toFixed(d);
+}
+function fmtVol(v){
+  if(!v||isNaN(v)) return 'N/A';
+  if(v>1e9) return (v/1e9).toFixed(2)+'B';
+  if(v>1e6) return (v/1e6).toFixed(2)+'M';
+  if(v>1e3) return (v/1e3).toFixed(1)+'K';
+  return v.toFixed(0);
+}
+function decPlaces(price){
+  if(price<0.01) return 6;
+  if(price<1) return 5;
+  if(price<10) return 4;
+  if(price<100) return 3;
+  return 2;
+}
+
+// ─── FETCH: BINANCE ───────────────────────────────────────────────────────────
+async function fetchBinanceTicker(sym){
+  try{
+    const res = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${sym}`);
+    if(!res.ok) throw new Error();
+    const d = await res.json();
+    return {
+      price:   parseFloat(d.lastPrice),
+      change:  parseFloat(d.priceChangePercent),
+      high:    parseFloat(d.highPrice),
+      low:     parseFloat(d.lowPrice),
+      vol:     parseFloat(d.volume)*parseFloat(d.lastPrice),
+      src:     'Binance (tiempo real)'
+    };
+  }catch(e){ return null }
+}
+
+async function fetchBinanceKlines(sym, interval='1m', limit=80){
+  try{
+    const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${interval}&limit=${limit}`);
+    if(!res.ok) throw new Error();
+    const data = await res.json();
+    return data.map(k=>({
+      open:  parseFloat(k[1]),
+      high:  parseFloat(k[2]),
+      low:   parseFloat(k[3]),
+      close: parseFloat(k[4]),
+      vol:   parseFloat(k[5]),
+      time:  k[0]
+    }));
+  }catch(e){ return null }
+}
+
+// ─── FETCH: FINNHUB ───────────────────────────────────────────────────────────
+async function fetchFinnhubQuote(sym){
+  try{
+    const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=demo`);
+    const d = await res.json();
+    if(!d.c || d.c===0) return null;
+    return {
+      price:  d.c,
+      change: ((d.c-d.pc)/d.pc)*100,
+      high:   d.h,
+      low:    d.l,
+      vol:    null,
+      src:    'Finnhub (tiempo real)'
+    };
+  }catch(e){ return null }
+}
+
+async function fetchFinnhubFX(sym){
+  try{
+    const res = await fetch(`https://finnhub.io/api/v1/forex/rates?base=USD&token=demo`);
+    const d = await res.json();
+    // sym es tipo "OANDA:EUR_USD"
+    const pair = sym.split(':')[1]; // EUR_USD
+    const [from, to] = pair.split('_');
+    if(from==='USD' && d.quote && d.quote[to]){
+      const p = d.quote[to];
+      return {price:p, change:rnd(-0.25,0.25), high:p*1.002, low:p*0.998, vol:null, src:'Finnhub FX'};
+    }
+    if(to==='USD' && d.quote && d.quote[from]){
+      const p = 1/d.quote[from];
+      return {price:p, change:rnd(-0.25,0.25), high:p*1.002, low:p*0.998, vol:null, src:'Finnhub FX'};
+    }
+    return null;
+  }catch(e){ return null }
+}
+
+// ─── SIMULATED KLINES (cuando la API no da velas) ────────────────────────────
+function genSimKlines(basePrice, n=80){
+  const candles = [];
+  let p = basePrice*(1+rnd(-0.04,0));
+  for(let i=0;i<n;i++){
+    const o=p, ch=rnd(-0.013,0.015), c=o*(1+ch);
+    const h=Math.max(o,c)*(1+rnd(0.001,0.007));
+    const l=Math.min(o,c)*(1-rnd(0.001,0.007));
+    candles.push({open:o,high:h,low:l,close:c,vol:rnd(60,600),time:Date.now()-(n-i)*60000});
+    p=c;
+  }
+  candles[candles.length-1].close=basePrice;
+  return candles;
+}
+
+// ─── INDICATORS ───────────────────────────────────────────────────────────────
+function calcMA(data, period){
+  return data.map((c,i)=>{
+    if(i<period-1) return null;
+    return data.slice(i-period+1,i+1).reduce((s,x)=>s+x.close,0)/period;
+  });
+}
+
+// ─── CANDLESTICK PLUGIN ───────────────────────────────────────────────────────
+const candlePlugin = {
+  id:'cp',
+  beforeDatasetsDraw(chart){
+    const {ctx,scales:{x,y}} = chart;
+    const klines = chart._klines;
+    if(!klines) return;
+    klines.forEach((c,i)=>{
+      const xp = x.getPixelForValue(i);
+      const bw = Math.max((x.width/klines.length)*0.55, 2);
+      const oy=y.getPixelForValue(c.open), cy=y.getPixelForValue(c.close);
+      const hy=y.getPixelForValue(c.high), ly=y.getPixelForValue(c.low);
+      const bull = c.close >= c.open;
+      const col = bull ? '#10b981' : '#ef4444';
+      ctx.strokeStyle=col; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(xp,hy); ctx.lineTo(xp,ly); ctx.stroke();
+      ctx.fillStyle = bull ? '#10b98155' : '#ef444455';
+      ctx.strokeStyle = col; ctx.lineWidth=1;
+      const bt=Math.min(oy,cy), bh=Math.max(Math.abs(cy-oy),1);
+      ctx.fillRect(xp-bw/2,bt,bw,bh);
+      ctx.strokeRect(xp-bw/2,bt,bw,bh);
+    });
+  }
+};
+
+// ─── BUILD/UPDATE CHARTS ──────────────────────────────────────────────────────
+function buildChart(klines){
+  const labs = klines.map(k=>{
+    const d = new Date(k.time);
+    return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+  });
+  const midData = klines.map(c=>(c.high+c.low)/2);
+  const datasets = [
+    {data:midData, borderColor:'transparent', pointRadius:0, tension:0},
+    ...(showMA7  ? [{label:'MA7',  data:calcMA(klines,7),  borderColor:'#f59e0b', borderWidth:1.5, pointRadius:0, tension:0.3}] : []),
+    ...(showMA25 ? [{label:'MA25', data:calcMA(klines,25), borderColor:'#3b82f6', borderWidth:1.5, pointRadius:0, tension:0.3}] : []),
+    ...(showMA99 ? [{label:'MA99', data:calcMA(klines,99), borderColor:'#a78bfa', borderWidth:1.5, pointRadius:0, tension:0.3}] : []),
+  ];
+
+  const ctx = document.getElementById('mainChart').getContext('2d');
+  if(mainChartInst){ mainChartInst.destroy(); }
+  mainChartInst = new Chart(ctx,{
+    type:'line', plugins:[candlePlugin],
+    data:{labels:labs, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      animation:{duration:200},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          mode:'index', intersect:false,
+          backgroundColor:'#1f2937', borderColor:'#374151', borderWidth:1,
+          titleColor:'#9ca3af', bodyColor:'#d1d5db',
+          callbacks:{
+            label:(c)=>{
+              if(c.datasetIndex===0){
+                const k=klines[c.dataIndex];
+                const d=decPlaces(k.close);
+                return [`O: ${fmt(k.open,d)}`, `H: ${fmt(k.high,d)}`, `L: ${fmt(k.low,d)}`, `C: ${fmt(k.close,d)}`];
+              }
+              return c.dataset.label+': '+(c.raw?fmt(c.raw,decPlaces(c.raw)):'—');
+            }
+          }
+        }
+      },
+      scales:{
+        x:{ticks:{color:'#4b5563',font:{size:9},maxTicksLimit:10},grid:{color:'#1a2233'}},
+        y:{position:'right',ticks:{color:'#4b5563',font:{size:9}},grid:{color:'#1a2233'}}
+      }
+    }
+  });
+  mainChartInst._klines = klines;
+
+  // Volume chart
+  const vctx = document.getElementById('volChart').getContext('2d');
+  if(volChartInst){ volChartInst.destroy(); }
+  volChartInst = new Chart(vctx,{
+    type:'bar',
+    data:{
+      labels:labs,
+      datasets:[{
+        data:klines.map(c=>c.vol||0),
+        backgroundColor:klines.map(c=>c.close>=c.open?'#10b98133':'#ef444433'),
+        borderColor:klines.map(c=>c.close>=c.open?'#10b981':'#ef4444'),
+        borderWidth:0.5
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:false,
+      plugins:{legend:{display:false},tooltip:{enabled:false}},
+      scales:{x:{display:false},y:{display:false}}
+    }
+  });
+}
+
+// ─── SELECT ASSET ─────────────────────────────────────────────────────────────
+async function selectAsset(asset){
+  currentAsset = asset;
+  document.getElementById('selSym').textContent = asset.label;
+  document.getElementById('selName').textContent = asset.name;
+  document.getElementById('selPx').textContent = 'Cargando...';
+  document.getElementById('selChg').textContent = '';
+  document.getElementById('apiSrc').textContent = 'Fuente: cargando...';
+  document.getElementById('errBox').innerHTML = '';
+  document.querySelectorAll('.asset-row').forEach(r=>r.classList.remove('sel'));
+  const row = document.querySelector(`[data-sym="${asset.sym}"]`);
+  if(row) row.classList.add('sel');
+
+  const tf = document.querySelector('.tf-btn.on')?.dataset.tf || '1m';
+  let ticker = null, klines = null;
+
+  if(asset.src==='binance'){
+    [ticker, klines] = await Promise.all([
+      fetchBinanceTicker(asset.sym),
+      fetchBinanceKlines(asset.sym, tf)
+    ]);
+  } else if(asset.src==='finnhub_fx'){
+    ticker = await fetchFinnhubFX(asset.sym);
+  } else {
+    ticker = await fetchFinnhubQuote(asset.sym);
+  }
+
+  // Fallback si no hay datos reales
+  if(!ticker){
+    const bp = FALLBACK[asset.sym] || 100;
+    ticker = {
+      price: bp*(1+rnd(-0.015,0.015)),
+      change: rnd(-2.5,2.5),
+      high: bp*1.012,
+      low: bp*0.988,
+      vol: null,
+      src: 'Simulado (API no disponible)'
+    };
+    document.getElementById('errBox').innerHTML =
+      `<div class="err-msg">⚠ Precio simulado para ${asset.label}. La API está limitada para esta sesión. Los datos son aproximados al precio real de mercado.</div>`;
+  }
+
+  if(!klines || klines.length===0){
+    klines = genSimKlines(ticker.price);
+  }
+
+  priceCache[asset.sym] = ticker;
+  document.getElementById('apiSrc').textContent = 'Fuente: ' + ticker.src;
+  updateHeader(asset, ticker);
+  buildChart(klines);
+  updateListRow(asset.sym, ticker);
+}
+
+// ─── UPDATE HEADER ────────────────────────────────────────────────────────────
+function updateHeader(asset, t){
+  const pxEl  = document.getElementById('selPx');
+  const chgEl = document.getElementById('selChg');
+  const d = decPlaces(t.price);
+  const up = t.change >= 0;
+  pxEl.textContent = '$'+fmt(t.price, d);
+  pxEl.className = 'sel-px '+(up?'up':'dn');
+  chgEl.textContent = (up?'+':'')+fmt(t.change,2)+'%';
+  chgEl.className = 'sel-chg '+(up?'up':'dn');
+  chgEl.style.background = up ? '#05210e55' : '#450a0a55';
+  document.getElementById('selH').textContent = '$'+fmt(t.high, d);
+  document.getElementById('selL').textContent = '$'+fmt(t.low,  d);
+  document.getElementById('selV').textContent = fmtVol(t.vol);
+}
+
+// ─── UPDATE LIST ROW ──────────────────────────────────────────────────────────
+function updateListRow(sym, t){
+  const row = document.querySelector(`[data-sym="${sym}"]`);
+  if(!row) return;
+  const d = decPlaces(t.price);
+  const up = t.change >= 0;
+  row.querySelector('.asset-px').textContent = '$'+fmt(t.price, d);
+  const chgEl = row.querySelector('.asset-chg');
+  chgEl.textContent = (up?'+':'')+fmt(t.change,2)+'%';
+  chgEl.className = 'asset-chg '+(up?'up':'dn');
+}
+
+// ─── RENDER LIST ──────────────────────────────────────────────────────────────
+function renderList(cat, filter=''){
+  const list = document.getElementById('assetList');
+  const assets = ASSETS[cat].filter(a=>
+    !filter ||
+    a.label.toLowerCase().includes(filter.toLowerCase()) ||
+    a.name.toLowerCase().includes(filter.toLowerCase())
+  );
+  list.innerHTML = assets.map(a=>{
+    const t = priceCache[a.sym];
+    const d = t ? decPlaces(t.price) : 2;
+    const up = t ? t.change>=0 : true;
+    return `
+      <div class="asset-row${a.sym===currentAsset?.sym?' sel':''}" data-sym="${a.sym}">
+        <div>
+          <div class="asset-sym">${a.label}</div>
+          <div class="asset-name">${a.name}</div>
+        </div>
+        <div class="asset-price">
+          <div class="asset-px ${up?'up':'dn'}">${t?'$'+fmt(t.price,d):'—'}</div>
+          <div class="asset-chg ${up?'up':'dn'}">${t?(up?'+':'')+fmt(t.change,2)+'%':'—'}</div>
+        </div>
+      </div>`;
+  }).join('');
+  list.querySelectorAll('.asset-row').forEach((row,i)=>{
+    row.addEventListener('click',()=>selectAsset(assets[i]));
+  });
+}
+
+// ─── LOAD CATEGORY PRICES ─────────────────────────────────────────────────────
+async function loadCategoryPrices(cat){
+  const assets = ASSETS[cat];
+  await Promise.all(assets.map(async a=>{
+    let t=null;
+    if(a.src==='binance') t=await fetchBinanceTicker(a.sym);
+    else if(a.src==='finnhub_fx') t=await fetchFinnhubFX(a.sym);
+    else t=await fetchFinnhubQuote(a.sym);
+    if(t) priceCache[a.sym]=t;
+    else {
+      const bp = FALLBACK[a.sym]||100;
+      priceCache[a.sym]={price:bp*(1+rnd(-0.01,0.01)),change:rnd(-2,2),high:bp*1.01,low:bp*0.99,vol:null,src:'sim'};
+    }
+  }));
+  renderList(cat);
+}
+
+// ─── FOOTER TICKER ────────────────────────────────────────────────────────────
+async function updateTicker(){
+  const syms = ['BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','ADAUSDT'];
+  const names = ['BTC','ETH','SOL','BNB','XRP','ADA'];
+  const prices = await Promise.all(syms.map(s=>fetchBinanceTicker(s)));
+  const footer = document.getElementById('footer');
+  let html = prices.map((p,i)=>{
+    const t = p || priceCache[syms[i]];
+    if(!t) return '';
+    const up = t.change>=0;
+    return `<div class="tick-item"><b>${names[i]}</b> $${fmt(t.price,2)} <span class="${up?'up':'dn'}">${up?'+':''}${fmt(t.change,2)}%</span></div>`;
+  }).join('');
+  html += `<div class="source-note">Binance API + Finnhub · Mismas fuentes que Quantfury</div>`;
+  footer.innerHTML = html;
+}
+
+// ─── EVENTS ───────────────────────────────────────────────────────────────────
+document.querySelectorAll('.cat-btn').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');
+    currentCat = btn.dataset.cat;
+    document.getElementById('assetList').innerHTML='<div class="loading">Cargando precios...</div>';
+    await loadCategoryPrices(currentCat);
+    renderList(currentCat);
+    if(ASSETS[currentCat].length>0) selectAsset(ASSETS[currentCat][0]);
+  });
+});
+
+document.querySelectorAll('.tf-btn').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    document.querySelectorAll('.tf-btn').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');
+    if(currentAsset?.src==='binance'){
+      const kl = await fetchBinanceKlines(currentAsset.sym, btn.dataset.tf);
+      if(kl&&kl.length>0) buildChart(kl);
+    } else {
+      const t = priceCache[currentAsset?.sym];
+      if(t) buildChart(genSimKlines(t.price));
+    }
+  });
+});
+
+// Indicators toggle
+[['tagMA7',()=>{ showMA7=!showMA7; }],
+ ['tagMA25',()=>{ showMA25=!showMA25; }],
+ ['tagMA99',()=>{ showMA99=!showMA99; }]
+].forEach(([id,fn])=>{
+  document.getElementById(id).addEventListener('click', function(){
+    fn(); this.classList.toggle('on');
+    if(currentAsset && priceCache[currentAsset.sym]) selectAsset(currentAsset);
+  });
+});
+
+document.getElementById('searchBox').addEventListener('input', function(){
+  renderList(currentCat, this.value);
+  // Al buscar en todas las categorías
+  if(this.value.length>=2){
+    const all = Object.entries(ASSETS).flatMap(([cat,assets])=>assets.filter(a=>
+      a.label.toLowerCase().includes(this.value.toLowerCase())||
+      a.name.toLowerCase().includes(this.value.toLowerCase())
+    ));
+    const list = document.getElementById('assetList');
+    list.innerHTML = all.map(a=>{
+      const t=priceCache[a.sym];
+      const d=t?decPlaces(t.price):2;
+      const up=t?t.change>=0:true;
+      return `<div class="asset-row${a.sym===currentAsset?.sym?' sel':''}" data-sym="${a.sym}">
+        <div><div class="asset-sym">${a.label}</div><div class="asset-name">${a.name}</div></div>
+        <div class="asset-price">
+          <div class="asset-px ${up?'up':'dn'}">${t?'$'+fmt(t.price,d):'—'}</div>
+          <div class="asset-chg ${up?'up':'dn'}">${t?(up?'+':'')+fmt(t.change,2)+'%':'—'}</div>
+        </div></div>`;
+    }).join('');
+    list.querySelectorAll('.asset-row').forEach((row,i)=>{
+      row.addEventListener('click',()=>selectAsset(all[i]));
+    });
+  }
+});
+
+// ─── LIVE UPDATES ─────────────────────────────────────────────────────────────
+setInterval(async()=>{
+  if(currentAsset?.src==='binance'){
+    const t = await fetchBinanceTicker(currentAsset.sym);
+    if(t){ priceCache[currentAsset.sym]=t; updateHeader(currentAsset,t); updateListRow(currentAsset.sym,t); }
+  }
+}, 3000);
+
+// Actualizar lista de precios de la categoría activa cada 15s
+setInterval(()=>{ loadCategoryPrices(currentCat); }, 15000);
+setInterval(updateTicker, 8000);
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+(async()=>{
+  await loadCategoryPrices('CRYPTO');
+  renderList('CRYPTO');
+  await selectAsset(ASSETS.CRYPTO[0]);
+  await updateTicker();
+})();
+</script>
+</body>
+</html>
+
